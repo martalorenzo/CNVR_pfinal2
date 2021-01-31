@@ -1,0 +1,8 @@
+#cloud-config
+hostname: admin-server
+
+runcmd:
+  - ifconfig ens4 up
+  - dhclient ens4
+  - [sed, -i, '/Port 22/c\Port 2020', /etc/ssh/sshd_config]
+  - [service, sshd, restart]

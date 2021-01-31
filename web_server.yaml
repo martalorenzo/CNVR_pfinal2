@@ -1,0 +1,66 @@
+heat_template_version: 2017-02-24
+
+description: Web Servers
+
+parameters:
+
+  server_name:
+    type: string
+    description: Server name
+
+  private_net1_name: 
+    type: string 
+    description: Private NW 1
+
+  private_subnet1_name: 
+    type: string 
+    description: Private SN 1
+
+  private_net2_name: 
+    type: string 
+    description: Private NW 2
+
+  private_subnet2_name: 
+    type: string 
+    description: Private SN 2
+
+resources:
+ 
+  web_server:
+    type: OS::Nova::Server
+    properties:
+      name: { get_param: server_name }
+      image: web_server
+      flavor: m1.smaller
+      user_data_format: RAW
+      user_data: { get_file: apache.yaml }
+      networks:
+        - port: { get_resource: web_server_port1 }
+        - port: { get_resource: web_server_port2 }
+
+  web_server_port1:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_param: private_net1_name }
+      security_groups:
+        - open
+      fixed_ips:
+        - subnet_id: { get_param: private_subnet1_name }
+
+  web_server_port2:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_param: private_net2_name }
+      security_groups:
+        - open
+      fixed_ips:
+        - subnet_id: { get_param: private_subnet2_name }
+
+
+outputs:
+
+  web_server:
+    description: Web server attributes
+    value: { get_attr: [ web_server, networks, {get_param: private_net1_name}, 0] }
+
+

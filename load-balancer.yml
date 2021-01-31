@@ -1,0 +1,86 @@
+heat_template_version: 2017-02-24
+
+description: Balanceador_Carga
+
+parameters:
+
+  subnet_name:
+    type: string
+    description: Net name
+
+  ip_server1:
+    type: string
+    description: IP server1
+
+  ip_server2:
+    type: string
+    description: IP server2
+
+  ip_server3:
+    type: string
+    description: IP server3
+
+resources:
+
+  lb: 
+    type: OS::Neutron::LBaaS::LoadBalancer
+    properties: 
+      name: lb
+      vip_subnet: {get_param: subnet_name}
+
+  lb_floatingIP:
+    type: OS::Neutron::FloatingIP
+    properties: 
+      floating_network_id: ExtNet
+      port_id: {get_attr: [lb, vip_port_id]}
+
+  listener:
+    type: OS::Neutron::LBaaS::Listener
+    properties:
+      loadbalancer: {get_resource: lb}
+      protocol: HTTP
+      protocol_port: 80
+  
+  pool:
+    type: OS::Neutron::LBaaS::Pool
+    properties:
+      name: pool
+      lb_algorithm: ROUND_ROBIN
+      protocol: HTTP
+      listener: {get_resource: listener}
+
+  member1:
+    type: OS::Neutron::LBaaS::PoolMember
+    properties:
+      address: {get_param: ip_server1}
+      pool: {get_resource: pool}
+      protocol_port: 80
+      subnet: {get_param: subnet_name}
+
+  member2:
+    type: OS::Neutron::LBaaS::PoolMember
+    properties:
+      address: {get_param: ip_server2}
+      pool: {get_resource: pool}
+      protocol_port: 80
+      subnet: {get_param: subnet_name}
+
+  member3:
+    type: OS::Neutron::LBaaS::PoolMember
+    properties:
+      address: {get_param: ip_server3}
+      pool: {get_resource: pool}
+      protocol_port: 80
+      subnet: {get_param: subnet_name}
+
+
+outputs:
+
+  ip_lb:
+    description: The IP for the load balancer
+    value: {get_attr: [lb, vip_address]}
+
+
+  
+
+

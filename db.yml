@@ -1,0 +1,5 @@
+#cloud-config
+hostname: db_server
+
+runcmd:
+  - [mkdir, -p, /data/db ]

@@ -1,0 +1,12 @@
+parameters:
+  private_net1_name: Net1
+  private_subnet1_name: subnet1
+  private_subnet1_ip_prefix: 10.1.1.0/24
+  private_subnet1_gateway: 10.1.1.1
+  private_net2_name: Net2
+  private_subnet2_name: subnet2
+  private_subnet2_ip_prefix: 10.1.2.0/24
+  public_extnet_name: ExtNet
+  
+
+

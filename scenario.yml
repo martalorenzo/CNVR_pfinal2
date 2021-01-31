@@ -1,0 +1,227 @@
+heat_template_version: 2017-02-24
+
+description: EscenarioFinal
+
+parameters:
+
+  public_extnet_name:
+      type: string
+      default: ExtNet
+      description: Public NW
+
+  private_net1_name: 
+      type: string 
+      description: Private NW 1
+
+  private_subnet1_name: 
+      type: string 
+      description: Private SN 1
+
+  private_subnet1_ip_prefix: 
+      type: string 
+      description: SN prefix 1
+
+  private_subnet1_gateway: 
+    type: string 
+    description: SN 1 GW
+
+  private_net2_name: 
+    type: string 
+    description: Private NW 2
+
+  private_subnet2_name: 
+    type: string 
+    description: Private SN 2
+
+  private_subnet2_ip_prefix: 
+    type: string 
+    description: SN prefix 2
+
+
+resources: 
+    
+  open_security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: open
+      description: Regula el acceso entre VM's
+      rules: 
+        - {remote_ip_prefix: 0.0.0.0/0, direction: ingress}
+        - {remote_ip_prefix: 0.0.0.0/0, direction: egress}
+
+  clave:
+    type: OS::Nova::KeyPair
+    properties:
+      name: key1
+      save_private_key: true
+
+  admin_server:
+    type: OS::Nova::Server
+    depends_on: [ clave ]
+    properties:
+      name: admin_server
+      image: xenial-server-cloudimg-amd64-vnx
+      flavor: m1.smaller
+      user_data_format: SOFTWARE_CONFIG
+      user_data: { get_file: admin-server.yaml }
+      key_name: { get_resource: clave }
+      networks:
+        - port: { get_resource: admin_server_port1 }
+        - port: { get_resource: admin_server_port2 }
+
+  admin_server_port1:
+    type: OS::Neutron::Port
+    depends_on: [ open_security_group ]
+    properties:
+      network: { get_resource: private_net1 }
+      security_groups:
+        - open
+      fixed_ips:
+        - subnet_id: { get_resource: private_subnet1 }
+
+  admin_server_port2:
+    type: OS::Neutron::Port
+    depends_on: [ open_security_group ]
+    properties:
+      network: { get_resource: private_net2 }
+      security_groups:
+        - open
+      fixed_ips:
+        - subnet_id: { get_resource: private_subnet2 }
+
+  admin_server_floatingIP:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: public_extnet_name }
+      port_id: { get_resource: admin_server_port1 }
+
+  web_server1:
+    type: web_server.yaml
+    depends_on: [private_net1, private_subnet1, private_net2, private_subnet2]
+    properties:
+      server_name: web_server1
+      private_net1_name: {get_param: private_net1_name }
+      private_subnet1_name: {get_param: private_subnet1_name }
+      private_net2_name: {get_param: private_net2_name }
+      private_subnet2_name: {get_param: private_subnet2_name }
+
+  web_server2:
+    type: web_server.yaml
+    depends_on: [private_net1, private_subnet1, private_net2, private_subnet2]
+    properties:
+      server_name: web_server2
+      private_net1_name: {get_param: private_net1_name }
+      private_subnet1_name: {get_param: private_subnet1_name }
+      private_net2_name: {get_param: private_net2_name }
+      private_subnet2_name: {get_param: private_subnet2_name }
+
+  web_server3:
+    type: web_server.yaml
+    depends_on: [private_net1, private_subnet1, private_net2, private_subnet2]
+    properties:
+      server_name: web_server3
+      private_net1_name: {get_param: private_net1_name }
+      private_subnet1_name: {get_param: private_subnet1_name }
+      private_net2_name: {get_param: private_net2_name }
+      private_subnet2_name: {get_param: private_subnet2_name }
+  
+  db_server:
+    type: OS::Nova::Server
+    properties:
+      name: db_server
+      image: bd_server
+      flavor: m1.smaller
+      user_data_format: RAW
+      user_data: { get_file: db.yml }
+      networks:
+        - port: { get_resource: db_server_port2 }
+
+  db_server_port2:
+    type: OS::Neutron::Port
+    properties:
+      network: { get_resource: private_net2 }
+      security_groups:
+        - open
+      fixed_ips:
+       -  subnet_id: { get_resource: private_subnet2 }
+         
+
+  private_net1:
+    type: OS::Neutron::Net
+    properties:
+      name: {get_param: private_net1_name}
+
+  private_subnet1:
+    type: OS::Neutron::Subnet
+    properties: 
+      name: {get_param: private_subnet1_name}
+      network: {get_resource: private_net1}
+      cidr: {get_param: private_subnet1_ip_prefix}
+      gateway_ip: {get_param: private_subnet1_gateway}
+
+  private_net2:
+    type: OS::Neutron::Net
+    properties:
+      name: {get_param: private_net2_name}
+
+  private_subnet2:
+    type: OS::Neutron::Subnet
+    properties: 
+      name: {get_param: private_subnet2_name}
+      network: {get_resource: private_net2}
+      cidr: {get_param: private_subnet2_ip_prefix}
+
+  router:
+    type: OS::Neutron::Router
+    properties:
+      name: router
+      external_gateway_info:
+        network: {get_param: public_extnet_name}
+
+  interfaz_router:
+    type: OS::Neutron::RouterInterface
+    depends_on: [router]
+    properties:
+      router: {get_resource: router}
+      subnet: {get_resource: private_subnet1}
+
+
+outputs:
+
+  admin_floating_IP:
+    description: Floating IP
+    value: { get_attr: [ admin_server_floatingIP, floating_ip_address ]}
+
+  admin_sever_privateIP:
+    description: IP del servidor de admin
+    value: { get_attr: [admin_server, networks, { get_param: private_net1_name },0 ]}
+
+  admin_clave:
+    description: Clave generada
+    value: { get_attr: [ clave, private_key ]}
+
+  IP_web_server1:
+    description: IP del servidor web 1
+    value: { get_attr: [web_server1, web_server ]}
+
+  IP_web_server2:
+    description: IP del servidor web 2
+    value: { get_attr: [web_server2, web_server ]}
+
+  IP_web_server3:
+    description: IP del servidor web 3
+    value: { get_attr: [web_server3, web_server ]}
+
+  IP_db_server:
+    description: IP de la bbdd
+    value: { get_attr: [db_server, networks ]}
+
+
+  
+
+
+
+
+
+
+

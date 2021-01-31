@@ -1,0 +1,8 @@
+#cloud-config
+hostname: web-servers
+
+runcmd:
+ - ifconfig ens4 up
+ - dhclient ens4
+ - curl http://169.254.169.254/openstack/latest/meta_data.json > /var/www/html/index.html
+ - systemctl reload apache2
